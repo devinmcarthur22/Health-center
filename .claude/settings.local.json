@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(find '/Users/devinmcarthur/Walr AE app' -maxdepth 3 -name package.json -o -name vite.config.* -o -name next.config.* -o -name nuxt.config.* -o -name angular.json -o -name webpack.config.* -o -name Makefile -o -name Procfile -o -name *.py)",
+      "Bash(npm install:*)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/devinmcarthur/.nvm/versions/**)",
+      "Bash(command -v bun)",
+      "Bash(command -v yarn)",
+      "Bash(command -v pnpm)",
+      "Bash(echo \"PATH: $PATH\")",
+      "Bash(env)",
+      "Bash(grep -E \"nvm|volta|fnm|asdf|n$|node\")",
+      "Bash(mdfind \"kMDItemCFBundleIdentifier == ''org.nodejs.node''\")",
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:walr.com)",
+      "Bash(grep -E \"\\\\.\\(png|jpg|jpeg|webp\\)$\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:54055/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:54831/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55157/)",
+      "Bash(mkdir -p \"/Users/devinmcarthur/Walr AE app/health-hub/src/data\")",
+      "Bash(mkdir -p \"/Users/devinmcarthur/Walr AE app/health-hub/src/utils\")",
+      "Bash(mkdir -p \"/Users/devinmcarthur/Walr AE app/health-hub/src/components\")",
+      "Read(//Users/devinmcarthur/**)",
+      "Bash(mdfind -name npm)",
+      "Bash(open \"/Users/devinmcarthur/Walr AE app/health-hub/health-hub.html\")"
+    ]
+  }
+}

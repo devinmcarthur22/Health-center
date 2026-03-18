@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "walr-ae-app",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "python3 -m http.server ${PORT:-5173} --directory '/Users/devinmcarthur/Walr AE app'"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}

@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Devin's Health Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; background: #09090b; color: #f4f4f5; font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
+    #root { min-height: 100dvh; display: flex; flex-direction: column; }
+    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 99px; }
+    .macro-bar { transition: width 0.5s cubic-bezier(0.4,0,0.2,1), background-color 0.3s; }
+    .tab-anim { animation: fadeUp 0.18s ease-out; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { opacity:1; }
+    .hide-scroll { -ms-overflow-style:none; scrollbar-width:none; }
+    .hide-scroll::-webkit-scrollbar { display:none; }
+  </style>
+  <script>tailwind.config = { theme: { extend: {} } }</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+// ═══════════════════════════════════════════════════════════
+// DATA — MEALS
+// ═══════════════════════════════════════════════════════════
+const MEAL_TEMPLATES = [
+  { id:'standard-breakfast', name:'Standard Breakfast', emoji:'🍳', category:'breakfast',
+    items:[
+      {name:'Large Eggs',          qty:5, unit:'eggs',       calPU:70,    pPU:6,    cPU:0,    fPU:5,    fiPU:0},
+      {name:'4% Cottage Cheese',   qty:1, unit:'½ cup',      calPU:120,   pPU:12,   cPU:6,    fPU:5,    fiPU:0},
+      {name:'Greek Yogurt',        qty:1, unit:'180g',        calPU:95,    pPU:16,   cPU:4.3,  fPU:2.2,  fiPU:0},
+      {name:'Blueberries',         qty:1, unit:'handful',     calPU:40,    pPU:0,    cPU:10,   fPU:0,    fiPU:1.8},
+    ]},
+  { id:'smoothie-breakfast', name:'Smoothie Breakfast', emoji:'🥤', category:'breakfast',
+    items:[
+      {name:'Frozen Mixed Berries', qty:1, unit:'cup',        calPU:70,    pPU:1,    cPU:17,   fPU:0,    fiPU:3},
+      {name:'Banana',               qty:1, unit:'medium',     calPU:105,   pPU:1,    cPU:27,   fPU:0,    fiPU:3.1},
+      {name:'Greek Yogurt',         qty:1, unit:'cup',        calPU:145,   pPU:22,   cPU:11,   fPU:2,    fiPU:0},
+    ]},
+  { id:'standard-lunch', name:'Standard Lunch', emoji:'🥗', category:'lunch',
+    items:[
+      {name:'Shredded Chicken Breast', qty:10, unit:'oz',     calPU:46,    pPU:8.5,  cPU:0,    fPU:0.5,  fiPU:0},
+      {name:'Apple',                   qty:1,  unit:'medium', calPU:80,    pPU:0,    cPU:21,   fPU:0,    fiPU:4.4},
+    ]},
+  { id:'chicken-breast-large', name:'Chicken Breast (12oz)', emoji:'🍗', category:'lunch',
+    items:[
+      {name:'Shredded Chicken Breast', qty:12, unit:'oz',     calPU:45.83, pPU:8.5,  cPU:0,    fPU:0.5,  fiPU:0},
+    ]},
+  { id:'standard-dinner', name:'Standard Dinner', emoji:'🥩', category:'dinner',
+    items:[
+      {name:'93/7 Ground Beef',      qty:8, unit:'oz',        calPU:42.5,  pPU:5.75, cPU:0,    fPU:2,    fiPU:0},
+      {name:'Jasmine Rice (cooked)', qty:1, unit:'cup',       calPU:200,   pPU:4,    cPU:44,   fPU:0,    fiPU:0.7},
+      {name:'Brussels Sprouts',      qty:1, unit:'cup',       calPU:55,    pPU:4,    cPU:11,   fPU:0,    fiPU:3.3},
+    ]},
+  { id:'chicken-thighs', name:'Chicken Thighs (15oz)', emoji:'🍗', category:'dinner',
+    items:[
+      {name:'Trimmed Chicken Thighs', qty:15, unit:'oz',      calPU:46,    pPU:7,    cPU:0,    fPU:1.47, fiPU:0},
+    ]},
+  { id:'protein-shake', name:'Protein Shake', emoji:'💪', category:'snack',
+    items:[
+      {name:'Transparent Labs Whey', qty:1, unit:'scoop',     calPU:140,   pPU:28,   cPU:3,    fPU:1,    fiPU:0},
+    ]},
+  { id:'pre-workout', name:'Pre-Workout Snack', emoji:'⚡', category:'snack',
+    items:[
+      {name:'Banana', qty:1, unit:'medium',                   calPU:105,   pPU:1,    cPU:27,   fPU:0,    fiPU:3.1},
+    ]},
+  { id:'rice-cake-snack', name:'Rice Cake Snack', emoji:'🍙', category:'snack',
+    items:[
+      {name:'Rice Cakes',    qty:2, unit:'cakes',             calPU:40,    pPU:0,    cPU:8,    fPU:0,    fiPU:0},
+      {name:'Banana',        qty:1, unit:'medium',            calPU:105,   pPU:1,    cPU:27,   fPU:0,    fiPU:3.1},
+      {name:'Cashew Butter', qty:2, unit:'tbsp',              calPU:95,    pPU:3,    cPU:5,    fPU:8,    fiPU:0.5},
+    ]},
+  { id:'clementines', name:'3 Clementines', emoji:'🍊', category:'snack',
+    items:[
+      {name:'Clementines', qty:3, unit:'clementines',         calPU:35,    pPU:0,    cPU:8.67, fPU:0,    fiPU:1.3},
+    ]},
+];
+
+const FOOD_LIBRARY = [
+  {id:'large-egg',        name:'Large Egg',               calPer100g:140,   pPer100g:12,    cPer100g:0,     fPer100g:10,   fiPer100g:0,
+   unitOptions:['egg','oz','grams'],           defaultUnit:'egg',         defaultQty:5,
+   unitToGrams:{egg:50, oz:28.35, grams:1}},
+  {id:'cottage-cheese',   name:'4% Cottage Cheese',       calPer100g:106.2, pPer100g:10.6,  cPer100g:5.3,   fPer100g:4.4,  fiPer100g:0,
+   unitOptions:['½ cup','oz','grams'],          defaultUnit:'½ cup',       defaultQty:1,
+   unitToGrams:{'½ cup':113, oz:28.35, grams:1}},
+  {id:'greek-yogurt',     name:'Greek Yogurt',            calPer100g:53,    pPer100g:8.8,   cPer100g:2.4,   fPer100g:1.2,  fiPer100g:0,
+   unitOptions:['¾ cup','100g','grams','oz'],   defaultUnit:'¾ cup',       defaultQty:1,
+   unitToGrams:{'¾ cup':170, '100g':100, grams:1, oz:28.35}},
+  {id:'chicken-breast',   name:'Shredded Chicken Breast', calPer100g:162.3, pPer100g:30,    cPer100g:0,     fPer100g:1.76, fiPer100g:0,
+   unitOptions:['oz','grams','lbs'],            defaultUnit:'oz',          defaultQty:10,
+   unitToGrams:{oz:28.35, grams:1, lbs:453.6}},
+  {id:'ground-beef',      name:'93/7 Ground Beef',        calPer100g:150.4, pPer100g:20.35, cPer100g:0,     fPer100g:7.08, fiPer100g:0,
+   unitOptions:['oz','grams','lbs'],            defaultUnit:'oz',          defaultQty:8,
+   unitToGrams:{oz:28.35, grams:1, lbs:453.6}},
+  {id:'jasmine-rice',     name:'Jasmine Rice (cooked)',   calPer100g:107.5, pPer100g:2.15,  cPer100g:23.66, fPer100g:0,    fiPer100g:0.4,
+   unitOptions:['cup','grams','oz'],            defaultUnit:'cup',         defaultQty:1,
+   unitToGrams:{cup:186, grams:1, oz:28.35}},
+  {id:'sweet-potato',     name:'Sweet Potato',            calPer100g:86.7,  pPer100g:2,     cPer100g:20,    fPer100g:0,    fiPer100g:2.5,
+   unitOptions:['medium','oz','grams'],         defaultUnit:'medium',      defaultQty:1,
+   unitToGrams:{medium:150, oz:28.35, grams:1}},
+  {id:'brussels-sprouts', name:'Brussels Sprouts',        calPer100g:62.5,  pPer100g:4.55,  cPer100g:12.5,  fPer100g:0,    fiPer100g:3.8,
+   unitOptions:['cup','oz','grams'],            defaultUnit:'cup',         defaultQty:1,
+   unitToGrams:{cup:88, oz:28.35, grams:1}},
+  {id:'apple',            name:'Apple',                   calPer100g:44,    pPer100g:0,     cPer100g:11.54, fPer100g:0,    fiPer100g:2.4,
+   unitOptions:['medium','oz','grams'],         defaultUnit:'medium',      defaultQty:1,
+   unitToGrams:{medium:182, oz:28.35, grams:1}},
+  {id:'banana',           name:'Banana',                  calPer100g:89,    pPer100g:0.85,  cPer100g:22.88, fPer100g:0,    fiPer100g:2.6,
+   unitOptions:['medium','oz','grams'],         defaultUnit:'medium',      defaultQty:1,
+   unitToGrams:{medium:118, oz:28.35, grams:1}},
+  {id:'blueberries',      name:'Blueberries',             calPer100g:53.3,  pPer100g:0,     cPer100g:13.33, fPer100g:0,    fiPer100g:2.4,
+   unitOptions:['handful','oz','grams'],        defaultUnit:'handful',     defaultQty:1,
+   unitToGrams:{handful:75, oz:28.35, grams:1}},
+  {id:'rice-cake',        name:'Rice Cake',               calPer100g:444.4, pPer100g:0,     cPer100g:88.9,  fPer100g:0,    fiPer100g:0.4,
+   unitOptions:['cake','oz','grams'],           defaultUnit:'cake',        defaultQty:2,
+   unitToGrams:{cake:9, oz:28.35, grams:1}},
+  {id:'cashew-butter',    name:'Cashew Butter',           calPer100g:593.75,pPer100g:18.75, cPer100g:31.25, fPer100g:50,   fiPer100g:3.3,
+   unitOptions:['tbsp','oz','grams'],           defaultUnit:'tbsp',        defaultQty:2,
+   unitToGrams:{tbsp:16, oz:28.35, grams:1}},
+  {id:'clementine',       name:'Clementine',              calPer100g:47.3,  pPer100g:0,     cPer100g:12.16, fPer100g:0,    fiPer100g:1.7,
+   unitOptions:['clementine','oz','grams'],     defaultUnit:'clementine',  defaultQty:3,
+   unitToGrams:{clementine:74, oz:28.35, grams:1}},
+  {id:'orange',           name:'Orange',                  calPer100g:64.9,  pPer100g:0,     cPer100g:16.03, fPer100g:0,    fiPer100g:2.4,
+   unitOptions:['medium','oz','grams'],         defaultUnit:'medium',      defaultQty:1,
+   unitToGrams:{medium:131, oz:28.35, grams:1}},
+];
+
+// ═══════════════════════════════════════════════════════════
+// DATA — WORKOUTS
+// ═══════════════════════════════════════════════════════════
+const WORKOUT_CYCLE = ['Push','Pull','Legs','Push','Pull'];
+const WORKOUT_EXERCISES = {
+  Push:[
+    {id:'bench-press',       name:'Bench Press',              type:'Barbell'},
+    {id:'overhead-press',    name:'Overhead Press',           type:'Barbell'},
+    {id:'incline-db-press',  name:'Incline Dumbbell Press',   type:'Dumbbell'},
+    {id:'tricep-pushdowns',  name:'Tricep Pushdowns',         type:'Cable'},
+    {id:'lateral-raises',    name:'Lateral Raises',           type:'Dumbbell'},
+    {id:'chest-flyes',       name:'Chest Flyes',              type:'Dumbbell'},
+  ],
+  Pull:[
+    {id:'deadlifts',         name:'Deadlifts',                type:'Barbell'},
+    {id:'barbell-rows',      name:'Barbell Rows',             type:'Barbell'},
+    {id:'lat-pulldowns',     name:'Pull-Ups / Lat Pulldowns', type:'Cable'},
+    {id:'face-pulls',        name:'Face Pulls',               type:'Cable'},
+    {id:'bicep-curls',       name:'Bicep Curls',              type:'Dumbbell'},
+    {id:'rear-delt-flyes',   name:'Rear Delt Flyes',          type:'Dumbbell'},
+  ],
+  Legs:[
+    {id:'squats',            name:'Squats',                   type:'Barbell'},
+    {id:'romanian-deadlifts',name:'Romanian Deadlifts',       type:'Barbell'},
+    {id:'leg-press',         name:'Leg Press',                type:'Machine'},
+    {id:'leg-curls',         name:'Leg Curls',                type:'Machine'},
+    {id:'calf-raises',       name:'Calf Raises',              type:'Machine'},
+    {id:'lunges',            name:'Lunges',                   type:'Dumbbell'},
+  ],
+};
+const TYPE_COLORS = {
+  Barbell: 'bg-blue-500/20 text-blue-300',
+  Dumbbell:'bg-purple-500/20 text-purple-300',
+  Cable:   'bg-emerald-500/20 text-emerald-300',
+  Machine: 'bg-amber-500/20 text-amber-300',
+};
+const CARDIO_TYPES = ['Running','Walking','Cycling','Rowing','Elliptical','Jump Rope','HIIT','Swimming','Other'];
+
+// ═══════════════════════════════════════════════════════════
+// UTILS — DATE
+// ═══════════════════════════════════════════════════════════
+const getToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const getDOW = (s) => new Date(s+'T12:00:00').getDay();
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const SHORT_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const getDayName = (s) => DAY_NAMES[getDOW(s)];
+const getShortDay = (s) => SHORT_DAYS[getDOW(s)];
+const isWeighInDay = (s) => { const d=getDOW(s); return d===1||d===3||d===5; };
+const formatDisp = (s) => new Date(s+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+const getLastNDays = (n=7) => {
+  const days=[];
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    days.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
+  return days;
+};
+const getTargets = (s) => {
+  const d = getDOW(s);
+  return {calMin:2600,calMax:2700,protein:200,carbMin:175,carbMax:225,fatMin:70,fatMax:80,fiber:38};
+};
+const getWeekStart = (s) => {
+  const d=new Date(s+'T12:00:00'), day=d.getDay(), diff=day===0?-6:1-day;
+  d.setDate(d.getDate()+diff);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const getWeeklyAverages = (weights, numWeeks=12) => {
+  const today=getToday(), result=[];
+  for(let w=numWeeks-1;w>=0;w--){
+    const d=new Date(today+'T12:00:00'); d.setDate(d.getDate()-w*7);
+    const ws=getWeekStart(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    const mon=new Date(ws+'T12:00:00');
+    const weekDays=[0,2,4].map(offset=>{const x=new Date(mon);x.setDate(x.getDate()+offset);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;});
+    const vals=weekDays.map(day=>weights[day]).filter(Boolean);
+    if(vals.length>0){
+      const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+      result.push({week:ws,weekLabel:ws.slice(5),avg:Math.round(avg*10)/10,count:vals.length});
+    }
+  }
+  return result;
+};
+
+// ═══════════════════════════════════════════════════════════
+// UTILS — STORAGE
+// ═══════════════════════════════════════════════════════════
+const load = (k,fb) => { try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;} };
+const save = (k,v) => { try{localStorage.setItem(k,JSON.stringify(v));}catch{} };
+const getAllLogs      = ()   => load('dhh_logs',{});
+const saveAllLogs    = (v)  => save('dhh_logs',v);
+const getAllWorkouts  = ()   => load('dhh_workouts',{});
+const saveAllWorkouts= (v)  => save('dhh_workouts',v);
+const getAllWeights   = ()   => load('dhh_weights',{});
+const saveAllWeights = (v)  => save('dhh_weights',v);
+const getCycleIdx    = ()   => load('dhh_cycle',0);
+const saveCycleIdx   = (v)  => save('dhh_cycle',v);
+const getPRs         = ()   => load('dhh_prs',{});
+const savePRs        = (v)  => save('dhh_prs',v);
+const calcOneRM = (w,r) => r===1?w:Math.round(w*(1+r/30));
+
+// ═══════════════════════════════════════════════════════════
+// UTILS — AI
+// ═══════════════════════════════════════════════════════════
+const getMealInsight = (totals, targets, lastMealType) => {
+  const {cal,p,c,f} = totals;
+  const {calMin,calMax,protein,carbMin,carbMax,fatMax} = targets;
+  const remCal = calMax-cal, remP = protein-p;
+  const pPct=p/protein, calPct=cal/calMax, cPct=c/carbMax, fPct=f/fatMax;
+  if(cal>calMax+300) return {text:`Calories are ${Math.round(cal-calMax)} over today — keep the rest of the day light on carbs and fat.`,type:'warning'};
+  if(fPct>1.1) return {text:`Fat is running high (${Math.round(f)}g) — go with chicken breast instead of thighs at dinner.`,type:'warning'};
+  if(lastMealType==='dinner'||lastMealType==='snack'){
+    if(remCal>400) return {text:`You're ${Math.round(remCal)} calories under for the day — have your shake and a snack to hit your target.`,type:'info'};
+    if(p<180) return {text:`Protein is at ${Math.round(p)}g — under the 180g minimum. Add a shake or chicken.`,type:'warning'};
+    if(c<130&&calPct<0.85) return {text:`Carbs are only ${Math.round(c)}g on a training day — add a banana or rice to fuel recovery.`,type:'warning'};
+    if(pPct>=1&&calPct>=0.9&&calPct<=1.15) return {text:`Great day — you're on track across all macros. Protein hit, calories dialed in. 🎯`,type:'success'};
+  }
+  if(lastMealType==='lunch'){
+    if(pPct>=0.7&&cPct<0.45) return {text:`Protein is strong (${Math.round(p)}g). You're light on carbs — add a banana or rice before your workout.`,type:'info'};
+    if(pPct<0.4) return {text:`Only ${Math.round(p)}g protein midday — front-load a big chicken lunch to stay on track.`,type:'warning'};
+  }
+  if(lastMealType==='breakfast'){
+    if(pPct>=0.3) return {text:`Strong breakfast — ${Math.round(p)}g protein already. Keep the momentum at lunch.`,type:'success'};
+    return {text:`${Math.round(p)}g protein from breakfast. Aim for a high-protein lunch to stay on track.`,type:'info'};
+  }
+  if(remCal>0) return {text:`${Math.round(remCal)} calories remaining. Need ${Math.round(Math.max(0,remP))}g more protein.`,type:'info'};
+  return {text:`Macros looking solid today — stay on track!`,type:'success'};
+};
+const getEndOfDay = (totals,targets) => {
+  const {cal,p,c,f} = totals;
+  const {calMin,calMax,protein} = targets;
+  const flags=[], suggestions=[];
+  if(p<180){flags.push(`Protein under 180g (${Math.round(p)}g)`);suggestions.push('Add a protein shake or extra chicken tomorrow morning');}
+  if(c<130){flags.push(`Carbs under 130g on a training day (${Math.round(c)}g)`);suggestions.push("Add jasmine rice or a banana to tomorrow's meals");}
+  if(cal<calMin-400){flags.push(`Calories more than 400 under target (${Math.round(cal)} vs ${calMin})`);suggestions.push('Tomorrow, add a shake and pre-workout snack to hit your target');}
+  if(cal>calMax+300){flags.push(`Calories over target by ${Math.round(cal-calMax)}`);suggestions.push('Tomorrow, watch portions at dinner and skip calorie-dense snacks');}
+  return {flags,suggestions,isOnTrack:flags.length===0&&p>=protein*0.9&&cal>=calMin&&cal<=calMax+100};
+};
+const getWeightInsight = (thisAvg, lastAvg, weeklyAverages) => {
+  if(!thisAvg) return [];
+  const insights=[];
+  if(thisAvg>=200&&thisAvg<=203) insights.push({text:"You're in your goal range of 200–203 lbs!",type:'success'});
+  else if(thisAvg<200) insights.push({text:`${(200-thisAvg).toFixed(1)} lbs below goal — consider adding 100–200 calories.`,type:'warning'});
+  else insights.push({text:`${(thisAvg-203).toFixed(1)} lbs above goal range — stay in a moderate deficit.`,type:'info'});
+  if(lastAvg&&thisAvg<lastAvg){
+    const loss=lastAvg-thisAvg;
+    if(loss>1.0) insights.push({text:`Losing ${loss.toFixed(1)} lbs/week — too fast. Risk of muscle loss. Add 200+ calories.`,type:'error'});
+  }
+  if(weeklyAverages.length>=3){
+    const last3=weeklyAverages.slice(-3).map(w=>w.avg);
+    if(Math.max(...last3)-Math.min(...last3)<0.3&&thisAvg>203)
+      insights.push({text:'Weight has stalled for 3 weeks — try a small calorie reduction or add cardio.',type:'warning'});
+  }
+  return insights;
+};
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+let _id=Date.now();
+const genId = ()=>`i${_id++}`;
+// Use ?? (nullish coalescing) so that 0-values (e.g. 0 carbs) are NOT treated as falsy
+const itemMacros = (item) => {
+  const calPU = item.calPU ?? item.calPerUnit ?? 0;
+  const pPU   = item.pPU   ?? item.pPerUnit   ?? 0;
+  const cPU   = item.cPU   ?? item.cPerUnit   ?? 0;
+  const fPU   = item.fPU   ?? item.fPerUnit   ?? 0;
+  const fiPU  = item.fiPU  ?? item.fiPerUnit  ?? 0;
+  return {
+    cal: Math.round(item.qty * calPU),
+    p:   Math.round(item.qty * pPU  * 10) / 10,
+    c:   Math.round(item.qty * cPU  * 10) / 10,
+    f:   Math.round(item.qty * fPU  * 10) / 10,
+    fi:  Math.round(item.qty * fiPU * 10) / 10,
+  };
+};
+// Re-compute from per-unit values when stored macro is NaN (handles stale localStorage data)
+const sumItems = (items) => items.reduce((a,i) => {
+  const m = itemMacros(i);
+  return {
+    cal: a.cal + (isNaN(i.cal) ? m.cal : (i.cal ?? 0)),
+    p:   a.p   + (isNaN(i.p)   ? m.p   : (i.p   ?? 0)),
+    c:   a.c   + (isNaN(i.c)   ? m.c   : (i.c   ?? 0)),
+    f:   a.f   + (isNaN(i.f)   ? m.f   : (i.f   ?? 0)),
+    fi:  a.fi  + (isNaN(i.fi)  ? m.fi  : (i.fi  ?? 0)),
+  };
+}, {cal:0, p:0, c:0, f:0, fi:0});
+const sumAllMeals = (meals) => sumItems([...(meals.breakfast||[]),...(meals.lunch||[]),...(meals.dinner||[]),...(meals.snacks||[])]);
+const fmtQ = (qty) => qty%1===0 ? qty : qty.toFixed(1);
+const EMPTY_LOG = (date) => ({date, meals:{breakfast:[],lunch:[],dinner:[],snacks:[]}});
+const INSIGHT_STYLE = {
+  success:'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+  info:   'bg-blue-500/10 border-blue-500/30 text-blue-300',
+  warning:'bg-amber-500/10 border-amber-500/30 text-amber-300',
+  error:  'bg-red-500/10 border-red-500/30 text-red-300',
+};
+const INSIGHT_ICON = {success:'✅',info:'💡',warning:'⚠️',error:'🚨'};
+
+// ═══════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═══════════════════════════════════════════════════════════
+const MacroBar = ({value, target, color, isMin=false}) => {
+  const pct = Math.min((value/target)*100,100);
+  let bar = color;
+  if(isMin){ bar = value>=target?'bg-emerald-500':value>=target*0.75?'bg-amber-500':'bg-zinc-700'; }
+  else { if(value>target*1.1) bar='bg-red-500'; else if(value>target*0.88) bar='bg-amber-500'; }
+  return (
+    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full macro-bar ${bar}`} style={{width:`${Math.max(1,pct)}%`}}/>
+    </div>
+  );
+};
+
+const CalRing = ({current, target}) => {
+  const r=52,cx=64,cy=64,circ=2*Math.PI*r;
+  const pct=Math.min(current/target,1.08);
+  const offset=circ*(1-pct);
+  const color=current>target*1.12?'#ef4444':current>target*0.9?'#f59e0b':'#3b82f6';
+  return (
+    <svg width="128" height="128">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#27272a" strokeWidth="10"/>
+      {current>0&&<circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="10"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        transform={`rotate(-90 ${cx} ${cy})`} strokeLinecap="round"
+        style={{transition:'stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1),stroke 0.3s'}}/>}
+      <text x={cx} y={cy-8} textAnchor="middle" fill="white" fontSize="22" fontWeight="700" fontFamily="Inter,system-ui">{current}</text>
+      <text x={cx} y={cy+10} textAnchor="middle" fill="#71717a" fontSize="11" fontFamily="Inter,system-ui">/ {target}</text>
+      <text x={cx} y={cy+26} textAnchor="middle" fill="#71717a" fontSize="10" fontFamily="Inter,system-ui">cal</text>
+    </svg>
+  );
+};
+
+// Simple SVG bar chart
+const BarChartSVG = ({data, valueKey, targetMin, targetMax, colorFn, height=160}) => {
+  const w=100,h=height,pad={t:10,r:4,b:28,l:32};
+  const vals=data.map(d=>d[valueKey]||0).filter(v=>v>0);
+  const maxVal=vals.length?Math.max(...vals,targetMax||0)*1.1:3000;
+  const minVal=0;
+  const innerW=w-pad.l-pad.r;
+  const innerH=h-pad.t-pad.b;
+  const barW=innerW/data.length*0.6;
+  const barGap=innerW/data.length;
+  const toY=(v)=>pad.t+innerH*(1-(v-minVal)/(maxVal-minVal));
+  const yTicks=[0,Math.round(maxVal/2),Math.round(maxVal)];
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={height} style={{overflow:'visible'}}>
+      {/* Grid */}
+      {yTicks.map(tick=>(
+        <g key={tick}>
+          <line x1={pad.l} y1={toY(tick)} x2={w-pad.r} y2={toY(tick)} stroke="#27272a" strokeWidth="0.5"/>
+          <text x={pad.l-2} y={toY(tick)+3} textAnchor="end" fill="#52525b" fontSize="5" fontFamily="Inter,system-ui">
+            {tick>=1000?`${Math.round(tick/100)/10}k`:tick}
+          </text>
+        </g>
+      ))}
+      {/* Target range */}
+      {targetMin&&<line x1={pad.l} y1={toY(targetMin)} x2={w-pad.r} y2={toY(targetMin)} stroke="#3b82f6" strokeWidth="0.6" strokeDasharray="2 2" opacity="0.5"/>}
+      {targetMax&&<line x1={pad.l} y1={toY(targetMax)} x2={w-pad.r} y2={toY(targetMax)} stroke="#f59e0b" strokeWidth="0.6" strokeDasharray="2 2" opacity="0.5"/>}
+      {/* Bars */}
+      {data.map((d,i)=>{
+        const val=d[valueKey]||0;
+        const bh=val>0?Math.max(2,innerH*(val-minVal)/(maxVal-minVal)):0;
+        const bx=pad.l+i*barGap+(barGap-barW)/2;
+        const by=toY(val);
+        const color=colorFn?colorFn(d):'#3b82f6';
+        return (
+          <g key={i}>
+            <rect x={bx} y={val>0?by:pad.t+innerH} width={barW} height={bh} fill={val>0?color:'#1c1c1e'} rx="1.5"/>
+            <text x={bx+barW/2} y={h-pad.b+10} textAnchor="middle" fill="#52525b" fontSize="5.5" fontFamily="Inter,system-ui">
+              {d.label||d.day||''}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+// Simple SVG line chart
+const LineChartSVG = ({data, valueKey, targetMin, targetMax, height=160, strokeColor='#3b82f6'}) => {
+  const w=100,h=height,pad={t:10,r:4,b:24,l:32};
+  const vals=data.map(d=>d[valueKey]).filter(v=>v!=null);
+  if(!vals.length) return <div className="h-40 flex items-center justify-center text-zinc-700 text-sm">Not enough data yet</div>;
+  const maxVal=Math.ceil(Math.max(...vals,targetMax||0))+1;
+  const minVal=Math.floor(Math.min(...vals,targetMin||0))-1;
+  const innerW=w-pad.l-pad.r, innerH=h-pad.t-pad.b;
+  const toX=(i)=>pad.l+i*(innerW/(data.length-1||1));
+  const toY=(v)=>pad.t+innerH*(1-(v-minVal)/(maxVal-minVal));
+  const points=data.map((d,i)=>d[valueKey]!=null?`${toX(i).toFixed(1)},${toY(d[valueKey]).toFixed(1)}`:null).filter(Boolean);
+  const pathD=points.map((p,i)=>`${i===0?'M':'L'}${p}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={height}>
+      {/* Grid */}
+      {[minVal,Math.round((minVal+maxVal)/2),maxVal].map(tick=>(
+        <g key={tick}>
+          <line x1={pad.l} y1={toY(tick)} x2={w-pad.r} y2={toY(tick)} stroke="#27272a" strokeWidth="0.5"/>
+          <text x={pad.l-2} y={toY(tick)+3} textAnchor="end" fill="#52525b" fontSize="5" fontFamily="Inter,system-ui">{tick}</text>
+        </g>
+      ))}
+      {/* Goal zone */}
+      {targetMin&&targetMax&&(
+        <rect x={pad.l} y={toY(targetMax)} width={innerW} height={Math.abs(toY(targetMax)-toY(targetMin))} fill="#10b981" opacity="0.07"/>
+      )}
+      {targetMax&&<line x1={pad.l} y1={toY(targetMax)} x2={w-pad.r} y2={toY(targetMax)} stroke="#10b981" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.5"/>}
+      {targetMin&&<line x1={pad.l} y1={toY(targetMin)} x2={w-pad.r} y2={toY(targetMin)} stroke="#10b981" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.5"/>}
+      {/* Line */}
+      {points.length>1&&<path d={pathD} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>}
+      {/* Dots + labels */}
+      {data.map((d,i)=>{
+        if(d[valueKey]==null) return null;
+        const x=toX(i), y=toY(d[valueKey]);
+        return (
+          <g key={i}>
+            <circle cx={x} cy={y} r="2" fill={strokeColor}/>
+            <text x={x} y={h-pad.b+10} textAnchor="middle" fill="#52525b" fontSize="5" fontFamily="Inter,system-ui">
+              {d.label||''}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+const NAV_TABS = [
+  {id:'today',    label:'Today',    icon:'🏠'},
+  {id:'log',      label:'Log Meal', icon:'➕'},
+  {id:'workouts', label:'Workouts', icon:'⚡'},
+  {id:'weight',   label:'Weight',   icon:'📊'},
+  {id:'weekly',   label:'Weekly',   icon:'📅'},
+];
+const Navigation = ({active, onChange}) => (
+  <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800 z-50" style={{paddingBottom:'env(safe-area-inset-bottom,0)'}}>
+    <div className="flex items-center justify-around px-1">
+      {NAV_TABS.map(({id,label,icon})=>{
+        const on=active===id;
+        return (
+          <button key={id} onClick={()=>onChange(id)}
+            className={`flex flex-col items-center gap-0.5 py-2.5 px-2 min-w-[56px] transition-all duration-150 rounded-xl ${on?'text-blue-400':'text-zinc-500 active:text-zinc-300'}`}>
+            <span className="text-xl leading-none">{icon}</span>
+            <span className={`text-[10px] font-medium leading-none ${on?'text-blue-400':'text-zinc-600'}`}>{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  </nav>
+);
+
+// ═══════════════════════════════════════════════════════════
+// TAB: TODAY
+// ═══════════════════════════════════════════════════════════
+const MealSection = ({title, emoji, items, onAdd, onRemove}) => {
+  const [open,setOpen]=useState(true);
+  const totals=sumItems(items);
+  return (
+    <div className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800">
+      <button onClick={()=>setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{emoji}</span>
+          <span className="font-semibold text-zinc-100">{title}</span>
+          {items.length>0&&<span className="text-xs text-zinc-500">{Math.round(totals.cal)} cal · {Math.round(totals.p)}p</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={(e)=>{e.stopPropagation();onAdd();}}
+            className="w-7 h-7 flex items-center justify-center bg-blue-500/20 text-blue-400 rounded-lg text-lg leading-none font-bold active:bg-blue-500/30">+</button>
+          <span className={`text-zinc-500 text-xs transition-transform ${open?'rotate-180':'rotate-0'}`}>▼</span>
+        </div>
+      </button>
+      {open&&(
+        <div className="px-4 pb-3 space-y-2">
+          {items.length===0?(
+            <button onClick={onAdd} className="w-full py-2.5 text-sm text-zinc-600 border border-dashed border-zinc-800 rounded-xl hover:border-zinc-600 hover:text-zinc-400">
+              Tap + to add {title.toLowerCase()}
+            </button>
+          ):items.map(item=>(
+            <div key={item.id} className="flex items-center justify-between py-1.5 border-b border-zinc-800/60 last:border-0">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-zinc-200 truncate">
+                  {item.qty!==1?`${fmtQ(item.qty)} ${item.unit} `:''}{item.name}
+                </div>
+                <div className="text-xs text-zinc-500">{Math.round(item.cal)} cal · {Math.round(item.p)}p · {Math.round(item.c)}c · {Math.round(item.f)}f</div>
+              </div>
+              <button onClick={()=>onRemove(item.id)} className="ml-3 w-6 h-6 flex items-center justify-center text-zinc-600 hover:text-red-400 rounded-lg hover:bg-red-500/10">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Today = ({todayLog,today,workouts,weights,cycleIndex,goToLogMeal,removeMealItem}) => {
+  const targets=getTargets(today);
+  const totals=sumAllMeals(todayLog.meals);
+  const remCal=targets.calMax-totals.cal;
+  const lastMealType=todayLog.meals.snacks.length?'snack':todayLog.meals.dinner.length?'dinner':todayLog.meals.lunch.length?'lunch':todayLog.meals.breakfast.length?'breakfast':null;
+  const insight=lastMealType?getMealInsight(totals,targets,lastMealType):null;
+  const endOfDay=(lastMealType==='dinner'||lastMealType==='snack')?getEndOfDay(totals,targets):null;
+  const todayWorkout=workouts[today];
+  const nextType=WORKOUT_CYCLE[cycleIndex%5];
+  const todayWeight=weights[today];
+  const weighIn=isWeighInDay(today);
+
+  return (
+    <div className="px-4 pt-5 pb-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Devin's Health Hub</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">{formatDisp(today)}</p>
+        </div>
+        {weighIn&&!todayWeight&&(
+          <div className="bg-amber-500/15 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-center">
+            <div className="text-xs font-semibold text-amber-400">⚖ Weigh-in Day</div>
+            <div className="text-[10px] text-amber-500/70">Log fasted weight</div>
+          </div>
+        )}
+        {weighIn&&todayWeight&&(
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-2.5 py-1.5 text-center">
+            <div className="text-xs font-semibold text-emerald-400">{todayWeight} lbs</div>
+            <div className="text-[10px] text-zinc-500 mt-0.5">Logged ✓</div>
+          </div>
+        )}
+      </div>
+
+      {/* Calorie Hero */}
+      <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-4">
+        <div className="flex items-center gap-5">
+          <CalRing current={Math.round(totals.cal)} target={targets.calMax}/>
+          <div className="flex-1 space-y-3">
+            <div>
+              <div className="flex justify-between text-xs text-zinc-500 mb-1.5">
+                <span>Calories</span>
+                <span className={remCal<0?'text-red-400':'text-zinc-400'}>{remCal<0?`+${Math.abs(Math.round(remCal))} over`:`${Math.round(remCal)} left`}</span>
+              </div>
+              <MacroBar value={totals.cal} target={targets.calMax} color="bg-blue-500"/>
+              <div className="text-xs text-zinc-700 mt-1">Target {targets.calMin}–{targets.calMax}</div>
+            </div>
+            <div className="pt-2 border-t border-zinc-800">
+              {todayWorkout?(
+                <div className="text-xs text-emerald-400">✓ {todayWorkout.type} day logged</div>
+              ):(
+                <div className="text-xs text-zinc-500">Next: {nextType} day</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Macro Grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          {label:'Protein', value:totals.p,  target:targets.protein, color:'text-emerald-400', bar:'bg-emerald-500', isMin:true, unit:'g'},
+          {label:'Carbs',   value:totals.c,  target:targets.carbMax, color:'text-amber-400',   bar:'bg-amber-500',   unit:'g'},
+          {label:'Fat',     value:totals.f,  target:targets.fatMax,  color:'text-orange-400',  bar:'bg-orange-500',  unit:'g'},
+          {label:'Fiber',   value:totals.fi??0, target:targets.fiber,color:'text-green-400',   bar:'bg-green-500',   isMin:true, unit:'g'},
+        ].map(({label,value,target,color,bar,isMin,unit})=>(
+          <div key={label} className="bg-zinc-900 rounded-2xl border border-zinc-800 p-3">
+            <div className={`text-lg font-bold ${color}`}>{Math.round(value*10)/10}{unit}</div>
+            <div className="text-xs text-zinc-500 mb-2">{label}</div>
+            <MacroBar value={value} target={target} color={bar} isMin={isMin}/>
+            <div className="text-[10px] text-zinc-600 mt-1.5">{Math.round(value/target*100)}% of {target}{unit}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* AI Insight */}
+      {insight&&(
+        <div className={`rounded-2xl border p-3.5 ${INSIGHT_STYLE[insight.type]}`}>
+          <div className="flex items-start gap-2.5">
+            <span className="flex-shrink-0">{INSIGHT_ICON[insight.type]}</span>
+            <p className="text-sm leading-relaxed">{insight.text}</p>
+          </div>
+        </div>
+      )}
+
+      {/* End of day summary */}
+      {endOfDay&&!endOfDay.isOnTrack&&endOfDay.flags.length>0&&(
+        <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-4 space-y-2">
+          <div className="text-sm font-semibold text-zinc-200 mb-1">📊 Day Summary</div>
+          {endOfDay.flags.map((f,i)=><div key={i} className="text-xs text-amber-400 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0"/>{f}</div>)}
+          {endOfDay.suggestions.map((s,i)=><div key={i} className="text-xs text-zinc-400 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-zinc-600 rounded-full flex-shrink-0"/>{s}</div>)}
+        </div>
+      )}
+      {endOfDay?.isOnTrack&&(
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3.5 flex items-center gap-2">
+          <span>🎯</span><span className="text-sm font-semibold text-emerald-300">Nailed it today — all macros on target!</span>
+        </div>
+      )}
+
+      {/* Meal Log */}
+      <div className="space-y-2.5">
+        {[{key:'breakfast',title:'Breakfast',emoji:'🍳'},{key:'lunch',title:'Lunch',emoji:'🥗'},{key:'dinner',title:'Dinner',emoji:'🍽'},{key:'snacks',title:'Snacks',emoji:'🍎'}].map(({key,title,emoji})=>(
+          <MealSection key={key} title={title} emoji={emoji}
+            items={todayLog.meals[key]}
+            onAdd={()=>goToLogMeal(key)}
+            onRemove={(id)=>removeMealItem(key,id)}/>
+        ))}
+      </div>
+      <div className="h-2"/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB: LOG MEAL
+// ═══════════════════════════════════════════════════════════
+const templateToItems = (tpl) => tpl.items.map(it=>({
+  id:genId(), name:it.name, qty:it.qty, unit:it.unit,
+  calPerUnit:it.calPU, pPerUnit:it.pPU, cPerUnit:it.cPU, fPerUnit:it.fPU,
+  ...itemMacros({qty:it.qty,calPU:it.calPU,pPU:it.pPU,cPU:it.cPU,fPU:it.fPU}),
+  templateId:tpl.id,
+}));
+
+const MEAL_TABS=[{key:'breakfast',label:'Breakfast',emoji:'🍳'},{key:'lunch',label:'Lunch',emoji:'🥗'},{key:'dinner',label:'Dinner',emoji:'🍽'},{key:'snacks',label:'Snacks',emoji:'🍎'}];
+
+const CustomizeModal = ({template, onAdd, onClose}) => {
+  const [items,setItems]=useState(template.items.map(it=>({...it})));
+  const totals=useMemo(()=>items.reduce((a,it)=>{const m=itemMacros({qty:it.qty,calPU:it.calPU,pPU:it.pPU,cPU:it.cPU,fPU:it.fPU});return{cal:a.cal+m.cal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{cal:0,p:0,c:0,f:0}),[items]);
+  const adj=(idx,delta)=>setItems(prev=>prev.map((it,i)=>{
+    if(i!==idx) return it;
+    const step=it.unit==='oz'||it.unit==='eggs'?1:0.5;
+    return {...it,qty:Math.max(step,Math.round((it.qty+delta*step)*10)/10)};
+  }));
+  const handleAdd=()=>{
+    onAdd(items.map(it=>({id:genId(),name:it.name,qty:it.qty,unit:it.unit,calPerUnit:it.calPU,pPerUnit:it.pPU,cPerUnit:it.cPU,fPerUnit:it.fPU,...itemMacros({qty:it.qty,calPU:it.calPU,pPU:it.pPU,cPU:it.cPU,fPU:it.fPU}),templateId:template.id})));
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md bg-zinc-900 rounded-t-3xl border-t border-zinc-800 px-4 pt-4 pb-8" onClick={e=>e.stopPropagation()}>
+        <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4"/>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xl">{template.emoji}</span>
+          <h3 className="font-bold text-lg">{template.name}</h3>
+        </div>
+        <div className="grid grid-cols-4 gap-2 mb-4 p-3 bg-zinc-950 rounded-xl">
+          {[{l:'Cal',v:Math.round(totals.cal),c:'text-blue-400'},{l:'Pro',v:Math.round(totals.p)+'g',c:'text-emerald-400'},{l:'Carb',v:Math.round(totals.c)+'g',c:'text-amber-400'},{l:'Fat',v:Math.round(totals.f)+'g',c:'text-orange-400'}].map(({l,v,c})=>(
+            <div key={l} className="text-center">
+              <div className={`text-sm font-bold ${c}`}>{v}</div>
+              <div className="text-[10px] text-zinc-600">{l}</div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2 mb-5">
+          {items.map((it,idx)=>{
+            const m=itemMacros({qty:it.qty,calPU:it.calPU,pPU:it.pPU,cPU:it.cPU,fPU:it.fPU});
+            return (
+              <div key={idx} className="flex items-center justify-between bg-zinc-800/50 rounded-xl px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{it.name}</div>
+                  <div className="text-xs text-zinc-500">{Math.round(m.cal)} cal · {Math.round(m.p)}p</div>
+                </div>
+                <div className="flex items-center gap-2 ml-3">
+                  <button onClick={()=>adj(idx,-1)} className="w-7 h-7 flex items-center justify-center bg-zinc-700 text-zinc-300 rounded-lg font-bold">−</button>
+                  <span className="text-sm font-semibold text-center min-w-[50px]">{fmtQ(it.qty)} {it.unit}</span>
+                  <button onClick={()=>adj(idx,1)} className="w-7 h-7 flex items-center justify-center bg-zinc-700 text-zinc-300 rounded-lg font-bold">+</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={handleAdd} className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-2xl">Add to Meal</button>
+      </div>
+    </div>
+  );
+};
+
+const TemplateCard = ({template, onQuickAdd, onCustomize}) => {
+  const totals=useMemo(()=>template.items.reduce((a,it)=>{const m=itemMacros({qty:it.qty,calPU:it.calPU,pPU:it.pPU,cPU:it.cPU,fPU:it.fPU});return{cal:a.cal+m.cal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{cal:0,p:0,c:0,f:0}),[template]);
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-1">
+        <div>
+          <span className="text-xl block mb-1">{template.emoji}</span>
+          <div className="text-sm font-semibold leading-tight">{template.name}</div>
+        </div>
+        <button onClick={()=>onCustomize(template)} className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 flex-shrink-0 text-sm">⚙</button>
+      </div>
+      <div className="grid grid-cols-4 gap-0.5 text-center">
+        <div><div className="text-xs font-bold text-blue-400">{Math.round(totals.cal)}</div><div className="text-[9px] text-zinc-600">cal</div></div>
+        <div><div className="text-xs font-bold text-emerald-400">{Math.round(totals.p)}g</div><div className="text-[9px] text-zinc-600">pro</div></div>
+        <div><div className="text-xs font-bold text-amber-400">{Math.round(totals.c)}g</div><div className="text-[9px] text-zinc-600">carb</div></div>
+        <div><div className="text-xs font-bold text-orange-400">{Math.round(totals.f)}g</div><div className="text-[9px] text-zinc-600">fat</div></div>
+      </div>
+      <button onClick={()=>onQuickAdd(template)} className="w-full py-2 bg-blue-500 hover:bg-blue-400 text-white text-xs font-semibold rounded-xl">Add Now</button>
+    </div>
+  );
+};
+
+const AddCustomFood = ({onAdd, mealLabel}) => {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState('');
+  const [base100g, setBase100g] = useState(null); // locked per-100g from API
+  const [form, setForm] = useState({name:'', qty:'100', unit:'g', cal:'', p:'', c:'', fat:'', fi:''});
+
+  const updateField = (k, v) => {
+    if (k === 'qty' && base100g) {
+      // auto-rescale cal/p/c/fat/fi when qty changes and unit is grams
+      const q = parseFloat(v) || 0;
+      const isGrams = ['g','grams','gram'].includes(form.unit.trim().toLowerCase());
+      if (isGrams) {
+        const scale = q / 100;
+        setForm(prev => ({...prev, qty: v,
+          cal: q ? String(Math.round(base100g.cal * scale)) : '',
+          p:   q ? String(Math.round(base100g.p   * scale * 10) / 10) : '',
+          c:   q ? String(Math.round(base100g.c   * scale * 10) / 10) : '',
+          fat: q ? String(Math.round(base100g.fat * scale * 10) / 10) : '',
+          fi:  q ? String(Math.round((base100g.fi ?? 0) * scale * 10) / 10) : '',
+        }));
+        return;
+      }
+    }
+    // Manual edit of a macro field breaks auto-scale
+    if (['cal','p','c','fat','fi'].includes(k)) setBase100g(null);
+    setForm(prev => ({...prev, [k]: v}));
+  };
+
+  const doSearch = async () => {
+    if (!query.trim()) return;
+    setLoading(true); setError(''); setResults([]);
+    try {
+      const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=DEMO_KEY&pageSize=8&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const get = (nutrients, id) => nutrients?.find(n => n.nutrientId === id)?.value ?? null;
+      const foods = (data.foods || [])
+        .map(f => ({
+          id: f.fdcId,
+          name: f.description,
+          cal: get(f.foodNutrients, 1008),
+          p:   get(f.foodNutrients, 1003),
+          c:   get(f.foodNutrients, 1005),
+          fat: get(f.foodNutrients, 1004),
+        }))
+        .filter(f => f.cal !== null)
+        .slice(0, 7);
+      setResults(foods);
+      if (!foods.length) setError('No results — try a different term or enter macros manually.');
+    } catch {
+      setError('Search unavailable. Enter macros manually below.');
+    }
+    setLoading(false);
+  };
+
+  const pickResult = (food) => {
+    const b = {cal: food.cal, p: food.p ?? 0, c: food.c ?? 0, fat: food.fat ?? 0, fi: food.fi ?? 0};
+    setBase100g(b);
+    setResults([]);
+    setQuery('');
+    setForm({
+      name: food.name.length > 55 ? food.name.slice(0, 55) + '…' : food.name,
+      qty: '100', unit: 'g',
+      cal: String(Math.round(b.cal)),
+      p:   String(Math.round(b.p   * 10) / 10),
+      c:   String(Math.round(b.c   * 10) / 10),
+      fat: String(Math.round(b.fat * 10) / 10),
+      fi:  String(Math.round(b.fi  * 10) / 10),
+    });
+  };
+
+  const clearForm = () => {
+    setForm({name:'', qty:'100', unit:'g', cal:'', p:'', c:'', fat:'', fi:''});
+    setBase100g(null); setResults([]); setError(''); setQuery('');
+  };
+
+  const valid = form.name.trim() && parseFloat(form.qty) > 0 && form.cal !== '';
+
+  const handleAdd = () => {
+    const qty = parseFloat(form.qty) || 1;
+    const cal = parseFloat(form.cal) || 0;
+    const p   = parseFloat(form.p)   || 0;
+    const c   = parseFloat(form.c)   || 0;
+    const fat = parseFloat(form.fat) || 0;
+    const fi  = parseFloat(form.fi)  || 0;
+    onAdd({
+      id: genId(), name: form.name.trim(), qty,
+      unit: form.unit.trim() || 'serving',
+      calPerUnit: cal/qty, pPerUnit: p/qty, cPerUnit: c/qty, fPerUnit: fat/qty, fiPerUnit: fi/qty,
+      cal, p, c, f: fat, fi,
+    });
+    clearForm();
+  };
+
+  const hasFormData = form.name || form.cal;
+
+  return (
+    <div className="px-4 pb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Add Custom Food</h2>
+        {hasFormData && <button onClick={clearForm} className="text-xs text-zinc-600 hover:text-zinc-400">Clear</button>}
+      </div>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3.5 space-y-3">
+
+        {/* Search bar */}
+        <div className="flex gap-2">
+          <input type="text" value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key==='Enter' && doSearch()}
+            placeholder="Search any food to auto-fill macros…"
+            className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500 placeholder-zinc-600"/>
+          <button onClick={doSearch} disabled={loading || !query.trim()}
+            className="px-3.5 py-2.5 bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors flex-shrink-0 min-w-[64px] text-center">
+            {loading ? '…' : 'Search'}
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && <p className="text-xs text-amber-400 -mt-1">{error}</p>}
+
+        {/* Results dropdown */}
+        {results.length > 0 && (
+          <div className="bg-zinc-800 rounded-xl overflow-hidden border border-zinc-700 divide-y divide-zinc-700/60">
+            <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wide">Tap to select — macros per 100g</div>
+            {results.map(r => (
+              <button key={r.id} onClick={() => pickResult(r)}
+                className="w-full text-left px-3 py-2.5 hover:bg-zinc-700 active:bg-zinc-700 transition-colors">
+                <div className="text-sm text-zinc-100 leading-tight">{r.name}</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  <span className="text-blue-400">{Math.round(r.cal)}</span> cal ·{' '}
+                  <span className="text-emerald-400">{Math.round((r.p??0)*10)/10}p</span> ·{' '}
+                  <span className="text-amber-400">{Math.round((r.c??0)*10)/10}c</span> ·{' '}
+                  <span className="text-orange-400">{Math.round((r.fat??0)*10)/10}f</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Divider + form */}
+        {(results.length === 0) && (
+          <>
+            {/* Name row */}
+            <input type="text" value={form.name} onChange={e => updateField('name', e.target.value)}
+              placeholder="Food name"
+              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 placeholder-zinc-600"/>
+
+            {/* Qty + unit row */}
+            <div className="flex gap-2 items-center">
+              <input type="text" inputMode="decimal" value={form.qty} onChange={e => updateField('qty', e.target.value)}
+                className="w-16 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2 text-center focus:outline-none focus:border-blue-500"/>
+              <input type="text" value={form.unit} onChange={e => updateField('unit', e.target.value)}
+                placeholder="unit"
+                className="w-24 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 placeholder-zinc-600"/>
+              {base100g && (
+                <span className="text-[10px] text-blue-400 leading-tight">auto-scaled<br/>from 100g</span>
+              )}
+            </div>
+
+            {/* Macro fields */}
+            <div className="grid grid-cols-5 gap-1.5">
+              {[['cal','Cal','text-blue-400'],['p','Pro','text-emerald-400'],['c','Carb','text-amber-400'],['fat','Fat','text-orange-400'],['fi','Fiber','text-green-400']].map(([k,label,color])=>(
+                <div key={k}>
+                  <div className={`text-[10px] ${color} mb-1 text-center font-medium`}>{label}</div>
+                  <input type="text" inputMode="decimal" value={form[k]} onChange={e => updateField(k, e.target.value)}
+                    placeholder="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm text-center rounded-xl py-2 focus:outline-none focus:border-blue-500 placeholder-zinc-700"/>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={handleAdd} disabled={!valid}
+              className="w-full py-2.5 bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
+              Add to {mealLabel}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const FoodItem = ({food, onAdd}) => {
+  const [qtyStr, setQtyStr] = useState(String(food.defaultQty));
+  const [unit, setUnit] = useState(food.defaultUnit);
+
+  const parsedQty = parseFloat(qtyStr) || 0;
+  const grams = parsedQty * (food.unitToGrams[unit] ?? 1);
+  const m = {
+    cal: Math.round(grams / 100 * food.calPer100g),
+    p:   Math.round(grams / 100 * food.pPer100g  * 10) / 10,
+    c:   Math.round(grams / 100 * food.cPer100g  * 10) / 10,
+    f:   Math.round(grams / 100 * food.fPer100g  * 10) / 10,
+    fi:  Math.round(grams / 100 * (food.fiPer100g ?? 0) * 10) / 10,
+  };
+
+  const handleUnitChange = (newUnit) => {
+    const oldG = food.unitToGrams[unit] ?? 1;
+    const newG = food.unitToGrams[newUnit] ?? 1;
+    if (parsedQty && oldG && newG) {
+      const converted = Math.round(parsedQty * oldG / newG * 100) / 100;
+      setQtyStr(String(converted));
+    }
+    setUnit(newUnit);
+  };
+
+  const handleAdd = () => {
+    if (!parsedQty) return;
+    const g = food.unitToGrams[unit] ?? 1;
+    const calPerUnit = food.calPer100g * g / 100;
+    const pPerUnit   = food.pPer100g   * g / 100;
+    const cPerUnit   = food.cPer100g   * g / 100;
+    const fPerUnit   = food.fPer100g   * g / 100;
+    const fiPerUnit  = (food.fiPer100g ?? 0) * g / 100;
+    onAdd({id:genId(), name:food.name, qty:parsedQty, unit, calPerUnit, pPerUnit, cPerUnit, fPerUnit, fiPerUnit, ...m});
+    setQtyStr(String(food.defaultQty));
+    setUnit(food.defaultUnit);
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3.5 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium text-zinc-100">{food.name}</div>
+        <button onClick={handleAdd} disabled={!parsedQty}
+          className="w-8 h-8 flex items-center justify-center bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-xl text-lg font-bold active:bg-blue-600 flex-shrink-0">+</button>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={qtyStr}
+          onChange={(e) => setQtyStr(e.target.value)}
+          className="w-[72px] bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm font-semibold rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"
+        />
+        <select
+          value={unit}
+          onChange={(e) => handleUnitChange(e.target.value)}
+          className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm rounded-xl px-2 py-1.5 focus:outline-none focus:border-blue-500"
+          style={{WebkitAppearance:'auto'}}
+        >
+          {food.unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+        </select>
+      </div>
+      <div className="text-xs text-zinc-500 mt-2">
+        <span className="text-blue-400 font-medium">{m.cal}</span> cal ·{' '}
+        <span className="text-emerald-400">{m.p}p</span> ·{' '}
+        <span className="text-amber-400">{m.c}c</span> ·{' '}
+        <span className="text-orange-400">{m.f}f</span> ·{' '}
+        <span className="text-green-400">{m.fi}fi</span>
+      </div>
+    </div>
+  );
+};
+
+const LogMeal = ({todayLog,today,addMealItems,removeMealItem,initialMealType}) => {
+  const [activeMeal,setActiveMeal]=useState(initialMealType||'breakfast');
+  const [customize,setCustomize]=useState(null);
+  const [showAll,setShowAll]=useState(false);
+  const [flash,setFlash]=useState(null);
+  useEffect(()=>{ if(initialMealType) setActiveMeal(initialMealType); },[initialMealType]);
+  const allTotals=sumAllMeals(todayLog.meals);
+  const relevantTpls=useMemo(()=>showAll?MEAL_TEMPLATES:MEAL_TEMPLATES.filter(t=>t.category===activeMeal||(activeMeal==='snacks'&&t.category==='snack')),[activeMeal,showAll]);
+  const dispTpls=relevantTpls.length>0?relevantTpls:MEAL_TEMPLATES;
+  const flashAdded=(name)=>{ setFlash(name); setTimeout(()=>setFlash(null),2000); };
+  const quickAdd=(tpl)=>{ addMealItems(activeMeal,templateToItems(tpl)); flashAdded(tpl.name); };
+  const customAdd=(items)=>{ addMealItems(activeMeal,items); flashAdded('Meal'); };
+  const curItems=todayLog.meals[activeMeal]||[];
+  const curTotals=sumItems(curItems);
+  const curLabel=MEAL_TABS.find(t=>t.key===activeMeal)?.label;
+  return (
+    <div className="pb-4">
+      <div className="px-4 pt-5 pb-3">
+        <h1 className="text-xl font-bold">Log Meal</h1>
+        <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500">
+          <span className="text-blue-400 font-medium">{Math.round(allTotals.cal)} cal</span>
+          <span>·</span>
+          <span className="text-emerald-400">{Math.round(allTotals.p)}g protein</span>
+          <span>today</span>
+        </div>
+      </div>
+      {/* Meal tabs */}
+      <div className="flex gap-2 px-4 mb-4 overflow-x-auto hide-scroll">
+        {MEAL_TABS.map(({key,label,emoji})=>{
+          const cnt=todayLog.meals[key]?.length||0;
+          const on=activeMeal===key;
+          return (
+            <button key={key} onClick={()=>setActiveMeal(key)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${on?'bg-blue-500 text-white shadow-lg shadow-blue-500/20':'bg-zinc-900 text-zinc-400 border border-zinc-800'}`}>
+              <span>{emoji}</span><span>{label}</span>
+              {cnt>0&&<span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${on?'bg-white/20':'bg-zinc-700 text-zinc-400'}`}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {/* Current meal */}
+      {curItems.length>0&&(
+        <div className="mx-4 mb-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">{curLabel} Today</span>
+            <span className="text-xs text-zinc-500">{Math.round(curTotals.cal)} cal · {Math.round(curTotals.p)}p</span>
+          </div>
+          <div className="space-y-1.5">
+            {curItems.map(item=>(
+              <div key={item.id} className="flex items-center justify-between">
+                <span className="text-xs text-zinc-300">{item.qty!==1?`${fmtQ(item.qty)} ${item.unit} `:''}{item.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">{Math.round(item.cal)} cal</span>
+                  <button onClick={()=>removeMealItem(activeMeal,item.id)} className="text-zinc-600 hover:text-red-400">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Templates */}
+      <div className="px-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Quick Templates</h2>
+          <button onClick={()=>setShowAll(v=>!v)} className="text-xs text-blue-400 font-medium">{showAll?'Show relevant':'Show all'}</button>
+        </div>
+        {flash&&<div className="mb-3 py-2 px-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-xs text-emerald-300">✓ {flash} added to {curLabel}</div>}
+        <div className="grid grid-cols-2 gap-2.5">
+          {dispTpls.map(tpl=><TemplateCard key={tpl.id} template={tpl} onQuickAdd={quickAdd} onCustomize={setCustomize}/>)}
+        </div>
+      </div>
+      <div className="mx-4 mb-4 border-t border-zinc-800"/>
+      {/* Food Library */}
+      <div className="px-4">
+        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">Food Library</h2>
+        <div className="space-y-2">
+          {FOOD_LIBRARY.map(food=><FoodItem key={food.id} food={food} onAdd={item=>{addMealItems(activeMeal,[item]);flashAdded(food.name);}}/>)}
+        </div>
+      </div>
+      {/* Add Custom Food — search-powered, at the bottom */}
+      <div className="mx-4 mt-5 mb-2 border-t border-zinc-800"/>
+      <AddCustomFood mealLabel={curLabel} onAdd={(item)=>{addMealItems(activeMeal,[item]);flashAdded(item.name);}}/>
+      {customize&&<CustomizeModal template={customize} onAdd={customAdd} onClose={()=>setCustomize(null)}/>}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB: WORKOUTS
+// ═══════════════════════════════════════════════════════════
+let _wid=Date.now()+50000;
+const wGenId=()=>`w${_wid++}`;
+const blankSet=()=>({id:wGenId(),weight:'',reps:''});
+const findPrevWorkout=(workouts,today,type)=>{
+  const dates=Object.keys(workouts).filter(d=>d<today&&workouts[d]?.type===type).sort((a,b)=>a>b?-1:1);
+  return dates.length?workouts[dates[0]]:null;
+};
+
+const ExerciseCard = ({exercise, sets, prevSets, prs, onSetsChange, checkAndSavePR}) => {
+  const [newPRs,setNewPRs]=useState({});
+  const addSet=()=>onSetsChange([...sets,blankSet()]);
+  const updSet=(id,upd)=>{
+    onSetsChange(sets.map(s=>s.id===id?upd:s));
+    const w=parseFloat(upd.weight),r=parseInt(upd.reps);
+    if(w>0&&r>0){ const pr=checkAndSavePR(exercise.id,w,r); if(pr) setNewPRs(p=>({...p,[id]:true})); }
+  };
+  const remSet=(id)=>onSetsChange(sets.filter(s=>s.id!==id));
+  const curPR=prs[exercise.id];
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">{exercise.name}</h3>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TYPE_COLORS[exercise.type]||'bg-zinc-700 text-zinc-400'}`}>{exercise.type}</span>
+            {curPR&&<span className="text-[10px] text-zinc-500">PR: {curPR.weight}lbs×{curPR.reps}</span>}
+          </div>
+        </div>
+        {sets.length===0&&<button onClick={addSet} className="bg-blue-500/20 text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-xl">+ Set</button>}
+      </div>
+      {sets.length>0&&(
+        <div className="px-4 pb-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[10px] text-zinc-700 w-5 text-center">#</span>
+            <span className="text-[10px] text-zinc-700 w-[68px] text-center">Previous</span>
+            <span className="text-[10px] text-zinc-700 w-[60px] text-center">Weight</span>
+            <span className="text-[10px] text-zinc-700 w-[52px] text-center">Reps</span>
+          </div>
+          <div className="space-y-1">
+            {sets.map((set,i)=>(
+              <div key={set.id} className={`flex items-center gap-2 py-1 ${newPRs[set.id]?'bg-yellow-500/5 -mx-1 px-1 rounded-lg':''}`}>
+                <span className="text-xs text-zinc-600 w-5 text-center font-medium">{i+1}</span>
+                <div className="w-[68px] text-center">
+                  {prevSets?.[i]?<span className="text-xs text-zinc-600 font-mono">{prevSets[i].weight||'—'}×{prevSets[i].reps||'—'}</span>:<span className="text-xs text-zinc-800">—</span>}
+                </div>
+                <input type="number" value={set.weight} onChange={e=>updSet(set.id,{...set,weight:e.target.value})} placeholder="lbs"
+                  className="w-[60px] bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs text-center rounded-lg px-1.5 py-2 focus:outline-none focus:border-blue-500 placeholder-zinc-700"/>
+                <input type="number" value={set.reps} onChange={e=>updSet(set.id,{...set,reps:e.target.value})} placeholder="reps"
+                  className="w-[52px] bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs text-center rounded-lg px-1.5 py-2 focus:outline-none focus:border-blue-500 placeholder-zinc-700"/>
+                {newPRs[set.id]&&<span className="text-[10px] font-bold text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-full border border-yellow-500/30">🏆 PR</span>}
+                <button onClick={()=>remSet(set.id)} className="ml-auto text-zinc-700 hover:text-red-400">✕</button>
+              </div>
+            ))}
+          </div>
+          <button onClick={addSet} className="mt-2.5 w-full py-2 text-xs text-blue-400 font-medium bg-blue-500/10 hover:bg-blue-500/20 rounded-xl">+ Add Set</button>
+        </div>
+      )}
+      {sets.length===0&&<div className="px-4 pb-3"><button onClick={addSet} className="w-full py-2.5 text-xs text-zinc-600 border border-dashed border-zinc-800 rounded-xl hover:border-zinc-600 hover:text-zinc-400">Tap to log sets</button></div>}
+    </div>
+  );
+};
+
+const CardioSection = ({cardio, onChange}) => {
+  const [type,setType]=useState(''), [dur,setDur]=useState(''), [cal,setCal]=useState(''), [show,setShow]=useState(false);
+  const add=()=>{ if(!type||!dur)return; onChange([...cardio,{id:wGenId(),type,duration:parseInt(dur),calories:parseInt(cal)||0}]); setType('');setDur('');setCal('');setShow(false); };
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 flex items-center justify-between">
+        <h3 className="font-semibold">Cardio</h3>
+        <button onClick={()=>setShow(v=>!v)} className="bg-blue-500/20 text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-xl">+ Cardio</button>
+      </div>
+      {cardio.length>0&&<div className="px-4 space-y-2 mb-3">{cardio.map(c=>(
+        <div key={c.id} className="flex items-center justify-between text-sm">
+          <div><span className="font-medium">{c.type}</span><span className="text-zinc-500 ml-2">{c.duration} min</span></div>
+          <div className="flex items-center gap-2">
+            {c.calories>0&&<span className="text-xs text-blue-400">{c.calories} cal</span>}
+            <button onClick={()=>onChange(cardio.filter(x=>x.id!==c.id))} className="text-zinc-600 hover:text-red-400">✕</button>
+          </div>
+        </div>
+      ))}</div>}
+      {show&&<div className="px-4 pb-3 space-y-2">
+        <select value={type} onChange={e=>setType(e.target.value)} className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500">
+          <option value="">Select type...</option>{CARDIO_TYPES.map(t=><option key={t}>{t}</option>)}
+        </select>
+        <div className="flex gap-2">
+          <input type="number" value={dur} onChange={e=>setDur(e.target.value)} placeholder="Duration (min)" className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500 placeholder-zinc-600"/>
+          <input type="number" value={cal} onChange={e=>setCal(e.target.value)} placeholder="Cal burned" className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500 placeholder-zinc-600"/>
+        </div>
+        <button onClick={add} disabled={!type||!dur} className="w-full py-2.5 bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-sm font-semibold rounded-xl">Add Cardio</button>
+      </div>}
+      {cardio.length===0&&!show&&<div className="px-4 pb-3"><p className="text-xs text-zinc-600 text-center py-2">No cardio logged yet</p></div>}
+    </div>
+  );
+};
+
+const Workouts = ({today, workouts, cycleIndex, prs, saveWorkout, advanceCycle, checkAndSavePR}) => {
+  const wType=WORKOUT_CYCLE[cycleIndex%5];
+  const exercises=WORKOUT_EXERCISES[wType];
+  const prevW=useMemo(()=>findPrevWorkout(workouts,today,wType),[workouts,today,wType]);
+  const existing=workouts[today];
+  const [exSets,setExSets]=useState(()=>existing?.exercises||Object.fromEntries(exercises.map(e=>[e.id,[]])));
+  const [cardio,setCardio]=useState(existing?.cardio||[]);
+  const [saved,setSaved]=useState(!!existing);
+  const [started,setStarted]=useState(!!existing);
+  const updSets=useCallback((eid,sets)=>{ setExSets(p=>({...p,[eid]:sets})); setSaved(false); },[]);
+  const updCardio=useCallback(nc=>{ setCardio(nc); setSaved(false); },[]);
+  const doSave=()=>{
+    const w={date:today,type:wType,cyclePosition:cycleIndex,exercises:exSets,cardio};
+    saveWorkout(today,w); setSaved(true);
+  };
+  const doFinish=()=>{ doSave(); advanceCycle(); };
+  const totalVol=Object.values(exSets).flat().reduce((a,s)=>a+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0);
+  const totalSets=Object.values(exSets).flat().filter(s=>s.weight&&s.reps).length;
+  return (
+    <div className="px-4 pt-5 pb-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div><h1 className="text-xl font-bold">Workouts</h1><p className="text-sm text-zinc-500 mt-0.5">{formatDisp(today)}</p></div>
+        {saved&&<span className="text-xs text-emerald-400">✓ Saved</span>}
+      </div>
+      {/* Cycle */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-lg font-bold">{wType} Day</div>
+            <div className="text-xs text-zinc-500">5-day rotation</div>
+          </div>
+          <div className={`px-3 py-1.5 rounded-xl text-xs font-bold ${wType==='Push'?'bg-blue-500/20 text-blue-300':wType==='Pull'?'bg-purple-500/20 text-purple-300':'bg-emerald-500/20 text-emerald-300'}`}>{wType}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {WORKOUT_CYCLE.map((type,i)=>{
+            const active=i===cycleIndex%5;
+            return (
+              <div key={i} className="flex-1 text-center">
+                <div className={`h-1.5 rounded-full mb-1.5 ${active?(type==='Push'?'bg-blue-500':type==='Pull'?'bg-purple-500':'bg-emerald-500'):'bg-zinc-800'}`}/>
+                <span className={`text-[10px] font-medium ${active?'text-zinc-200':'text-zinc-700'}`}>{type[0]}</span>
+              </div>
+            );
+          })}
+        </div>
+        {prevW&&<div className="mt-3 pt-3 border-t border-zinc-800 text-xs text-zinc-500">📅 Last {wType}: {formatDisp(prevW.date)}</div>}
+      </div>
+      {started&&(
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+            <div className="text-lg font-bold text-blue-400">{totalSets}</div>
+            <div className="text-xs text-zinc-500">Sets Logged</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
+            <div className="text-lg font-bold text-purple-400">{totalVol>0?`${Math.round(totalVol/100)/10}k`:'0'}</div>
+            <div className="text-xs text-zinc-500">lbs Volume</div>
+          </div>
+        </div>
+      )}
+      {!started?(
+        <button onClick={()=>setStarted(true)} className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white font-bold text-lg rounded-2xl shadow-lg shadow-blue-500/20">
+          Start {wType} Day
+        </button>
+      ):(
+        <>
+          <div className="space-y-3">
+            {exercises.map(ex=>(
+              <ExerciseCard key={ex.id} exercise={ex} sets={exSets[ex.id]||[]}
+                prevSets={prevW?.exercises?.[ex.id]||null} prs={prs}
+                onSetsChange={sets=>updSets(ex.id,sets)} checkAndSavePR={checkAndSavePR}/>
+            ))}
+          </div>
+          <CardioSection cardio={cardio} onChange={updCardio}/>
+          <div className="flex gap-2 pt-1">
+            <button onClick={doSave} className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-2xl">Save Progress</button>
+            <button onClick={doFinish} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-2xl shadow-lg shadow-emerald-500/20">Finish Workout ✓</button>
+          </div>
+        </>
+      )}
+      <div className="h-2"/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB: WEIGHT
+// ═══════════════════════════════════════════════════════════
+const Weight = ({today, weights, logWeight}) => {
+  const todayW=weights[today];
+  const isWI=isWeighInDay(today);
+  const [val,setVal]=useState(todayW?String(todayW):'');
+  const [logged,setLogged]=useState(!!todayW);
+  const weeklyAvgs=useMemo(()=>getWeeklyAverages(weights,12),[weights]);
+  const last7WI=useMemo(()=>{
+    const days=getLastNDays(7);
+    return days.filter(d=>weights[d]!=null&&isWeighInDay(d)).map(d=>weights[d]);
+  },[weights]);
+  const last14=useMemo(()=>getLastNDays(14),[]);
+  const prevWIdays=last14.slice(0,7).filter(d=>weights[d]!=null&&isWeighInDay(d)).map(d=>weights[d]);
+  const thisAvg=last7WI.length?Math.round(last7WI.reduce((a,b)=>a+b,0)/last7WI.length*10)/10:null;
+  const prevAvg=prevWIdays.length?Math.round(prevWIdays.reduce((a,b)=>a+b,0)/prevWIdays.length*10)/10:null;
+  const weekChange=thisAvg&&prevAvg?Math.round((thisAvg-prevAvg)*10)/10:null;
+  const insights=getWeightInsight(thisAvg,prevAvg,weeklyAvgs);
+  const recentEntries=useMemo(()=>getLastNDays(21).filter(d=>weights[d]!=null).map(d=>({date:d,label:getShortDay(d)+' '+d.slice(5),weight:weights[d]})).reverse().slice(0,12),[weights]);
+  const chartData=weeklyAvgs.map(w=>({label:w.weekLabel,weight:w.avg}));
+  const inGoal=(w)=>w>=200&&w<=203;
+  const doLog=()=>{ const n=parseFloat(val); if(isNaN(n)||n<50||n>400)return; logWeight(today,n); setLogged(true); };
+  return (
+    <div className="px-4 pt-5 pb-4 space-y-4">
+      <div className="flex items-start justify-between">
+        <div><h1 className="text-xl font-bold">Weight Tracker</h1><p className="text-sm text-zinc-500 mt-0.5">{formatDisp(today)}</p></div>
+        {isWI&&!todayW&&<div className="bg-amber-500/15 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-center"><div className="text-xs font-semibold text-amber-400">⚖ Weigh-In Day</div></div>}
+      </div>
+      {/* Log input */}
+      {logged&&todayW?(
+        <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-4 py-3">
+          <div><div className="text-2xl font-bold text-emerald-300">{todayW} lbs</div><div className="text-xs text-emerald-500/80 mt-0.5">Logged today ✓</div></div>
+          <button onClick={()=>setLogged(false)} className="text-xs text-zinc-500 hover:text-zinc-300">Edit</button>
+        </div>
+      ):(
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+          <div className="text-sm font-semibold text-zinc-300 mb-1">Log Morning Weight</div>
+          <div className="text-xs text-zinc-500 mb-3">Fasted, no clothes, first thing in morning</div>
+          <div className="flex gap-2">
+            <input type="number" value={val} onChange={e=>setVal(e.target.value)} placeholder="e.g. 203.4" step="0.1"
+              className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-lg font-semibold rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 placeholder-zinc-700"/>
+            <span className="flex items-center text-zinc-500 font-medium px-2">lbs</span>
+            <button onClick={doLog} disabled={!val||isNaN(parseFloat(val))} className="px-5 py-3 bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-semibold rounded-xl">Log</button>
+          </div>
+        </div>
+      )}
+      {/* Goal progress */}
+      {thisAvg&&(
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-zinc-300">Goal Progress</h2>
+            <div className="text-xs text-zinc-500">Goal: 200–203 lbs</div>
+          </div>
+          <div className="flex justify-between text-xs text-zinc-500 mb-2"><span>Start: 205 lbs</span><span>Goal: 200–203 lbs</span></div>
+          <div className="relative h-3 bg-zinc-800 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-700 ${inGoal(thisAvg)?'bg-emerald-500':thisAvg>205?'bg-red-500':'bg-blue-500'}`}
+              style={{width:`${Math.max(2,Math.min(100,((205-thisAvg)/(205-203))*100))}%`}}/>
+          </div>
+          <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+            <span>{(205-thisAvg).toFixed(1)} lbs lost</span>
+            <span className={inGoal(thisAvg)?'text-emerald-400 font-semibold':''}>{inGoal(thisAvg)?'✓ In goal range':`${Math.max(0,thisAvg-203).toFixed(1)} lbs to go`}</span>
+          </div>
+        </div>
+      )}
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className="text-xl font-bold">{thisAvg??'—'}</div><div className="text-[10px] text-zinc-500 mt-0.5">This Week Avg</div>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className={`text-xl font-bold ${weekChange==null?'text-zinc-600':weekChange<0?'text-emerald-400':weekChange>0?'text-red-400':'text-zinc-400'}`}>
+            {weekChange==null?'—':weekChange===0?'±0':`${weekChange>0?'+':''}${weekChange}`}
+          </div><div className="text-[10px] text-zinc-500 mt-0.5">vs Last Week</div>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className="text-xl font-bold">{last7WI.length}/3</div><div className="text-[10px] text-zinc-500 mt-0.5">Weigh-ins/Wk</div>
+        </div>
+      </div>
+      {/* Insights */}
+      {insights.length>0&&<div className="space-y-2">{insights.map((ins,i)=>(
+        <div key={i} className={`rounded-2xl border p-3.5 ${INSIGHT_STYLE[ins.type]}`}>
+          <div className="flex items-start gap-2"><span>{INSIGHT_ICON[ins.type]}</span><p className="text-sm leading-relaxed">{ins.text}</p></div>
+        </div>
+      ))}</div>}
+      {/* Chart */}
+      {chartData.length>=2&&(
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+          <h2 className="text-sm font-semibold text-zinc-300 mb-4">Weekly Average Trend</h2>
+          <LineChartSVG data={chartData} valueKey="weight" targetMin={200} targetMax={203} strokeColor="#3b82f6" height={160}/>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500"><div className="w-4 h-0.5 bg-blue-500 rounded"/>Weekly avg</div>
+            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500"><div className="w-4 h-0.5 bg-emerald-500 opacity-50 rounded"/>Goal zone</div>
+          </div>
+        </div>
+      )}
+      {/* Recent log */}
+      {recentEntries.length>0&&(
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-zinc-800"><h2 className="text-sm font-semibold text-zinc-300">Recent Weigh-ins</h2></div>
+          <div className="divide-y divide-zinc-800">
+            {recentEntries.map(({date,label,weight})=>(
+              <div key={date} className="px-4 py-2.5 flex items-center justify-between">
+                <div><span className="text-sm text-zinc-300">{label}</span>{date===today&&<span className="ml-2 text-[10px] text-blue-400 font-medium">Today</span>}</div>
+                <span className={`text-sm font-semibold ${inGoal(weight)?'text-emerald-400':'text-zinc-300'}`}>{weight} lbs</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {recentEntries.length===0&&!todayW&&(
+        <div className="text-center py-8"><div className="text-4xl mb-3">⚖️</div><p className="text-zinc-400 font-medium">No weigh-ins yet</p><p className="text-zinc-600 text-sm mt-1">Log your weight above to start tracking</p></div>
+      )}
+      <div className="h-2"/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB: WEEKLY
+// ═══════════════════════════════════════════════════════════
+const computeStreak=(logs)=>{
+  let streak=0;
+  const days=getLastNDays(60).reverse();
+  for(const d of days){
+    const log=logs[d];
+    if(!log) break;
+    const all=[...log.meals.breakfast,...log.meals.lunch,...log.meals.dinner,...log.meals.snacks];
+    if(all.length===0) break;
+    streak++;
+  }
+  return streak;
+};
+
+const Weekly = ({today, logs, workouts, weights}) => {
+  const last7=useMemo(()=>getLastNDays(7),[]);
+  const last14=useMemo(()=>getLastNDays(14),[]);
+  const weekData=useMemo(()=>last7.map(date=>{
+    const log=logs[date]; const targets=getTargets(date);
+    const totals=log?sumAllMeals(log.meals):null;
+    const hasData=totals&&(totals.cal>0||totals.p>0);
+    return {date,day:getShortDay(date),label:getShortDay(date),cal:hasData?Math.round(totals.cal):null,protein:hasData?Math.round(totals.p):null,carbs:hasData?Math.round(totals.c):null,fat:hasData?Math.round(totals.f):null,calTarget:targets.calMax,onTarget:hasData&&totals.cal>=targets.calMin&&totals.cal<=targets.calMax+200,over:hasData&&totals.cal>targets.calMax+300,logged:!!hasData};
+  }),[last7,logs]);
+  const loggedDays=weekData.filter(d=>d.logged);
+  const avg=(arr)=>arr.length===0?0:Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
+  const avgCal=avg(loggedDays.map(d=>d.cal));
+  const avgPro=avg(loggedDays.map(d=>d.protein));
+  const avgCarb=avg(loggedDays.map(d=>d.carbs));
+  const avgFat=avg(loggedDays.map(d=>d.fat));
+  const daysOnTarget=loggedDays.filter(d=>d.onTarget).length;
+  const daysOver=loggedDays.filter(d=>d.over).length;
+  const daysUnder=loggedDays.filter(d=>d.logged&&!d.onTarget&&!d.over).length;
+  const prev7=last14.slice(0,7);
+  const prevData=prev7.map(d=>{const l=logs[d];const t=l?sumAllMeals(l.meals):null;return t&&t.cal>0?t:null;}).filter(Boolean);
+  const prevAvgCal=avg(prevData.map(t=>Math.round(t.cal)));
+  const prevAvgPro=avg(prevData.map(t=>Math.round(t.p)));
+  const calChange=prevAvgCal>0?Math.round(avgCal-prevAvgCal):null;
+  const proChange=prevAvgPro>0?Math.round(avgPro-prevAvgPro):null;
+  const streak=useMemo(()=>computeStreak(logs),[logs]);
+  const weekWorkouts=useMemo(()=>last7.map(d=>workouts[d]).filter(Boolean),[last7,workouts]);
+  const totalVol=weekWorkouts.reduce((acc,w)=>acc+Object.values(w.exercises||{}).flat().reduce((a,s)=>a+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),0);
+  const totalCardio=weekWorkouts.reduce((acc,w)=>acc+(w.cardio?.length||0),0);
+  const colorFn=(d)=>!d.logged?'#1c1c1e':d.over?'#ef4444':d.onTarget?'#3b82f6':'#6366f1';
+  return (
+    <div className="px-4 pt-5 pb-4 space-y-4">
+      <div><h1 className="text-xl font-bold">Weekly Summary</h1><p className="text-sm text-zinc-500 mt-0.5">Last 7 days</p></div>
+      {/* Streak */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className="flex items-center justify-center gap-1"><span className="text-xl">🔥</span><span className="text-2xl font-bold text-orange-400">{streak}</span></div>
+          <div className="text-[10px] text-zinc-500 mt-0.5">Day Streak</div>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className="text-2xl font-bold text-blue-400">{loggedDays.length}/7</div><div className="text-[10px] text-zinc-500 mt-0.5">Days Logged</div>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-center">
+          <div className="text-2xl font-bold text-emerald-400">{weekWorkouts.length}</div><div className="text-[10px] text-zinc-500 mt-0.5">Workouts</div>
+        </div>
+      </div>
+      {/* Calorie chart */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-zinc-300">Calorie Trend</h2>
+          <div className="text-xs text-zinc-500">Target: 2,600–2,700</div>
+        </div>
+        <BarChartSVG data={weekData} valueKey="cal" targetMin={2600} targetMax={2700} colorFn={colorFn} height={160}/>
+        <div className="flex items-center gap-3 mt-3">
+          {[{color:'bg-blue-500',label:'On target'},{color:'bg-indigo-500',label:'Under'},{color:'bg-red-500',label:'Over'},{color:'bg-zinc-800',label:'Not logged'}].map(({color,label})=>(
+            <div key={label} className="flex items-center gap-1 text-[10px] text-zinc-600"><div className={`w-2 h-2 rounded-full ${color}`}/>{label}</div>
+          ))}
+        </div>
+      </div>
+      {/* Avg macros */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <h2 className="text-sm font-semibold text-zinc-300 mb-3">7-Day Averages</h2>
+        <div className="grid grid-cols-4 gap-2">
+          {[{l:'Calories',v:avgCal,ch:calChange,c:'text-blue-400',u:''},{l:'Protein',v:avgPro,ch:proChange,c:'text-emerald-400',u:'g'},{l:'Carbs',v:avgCarb,c:'text-amber-400',u:'g'},{l:'Fat',v:avgFat,c:'text-orange-400',u:'g'}].map(({l,v,ch,c,u})=>(
+            <div key={l} className="text-center">
+              <div className={`text-base font-bold ${c}`}>{v||'—'}{u}</div>
+              <div className="text-[10px] text-zinc-600 mt-0.5">{l}</div>
+              {ch!=null&&<div className={`text-[10px] font-medium mt-0.5 ${ch<0?'text-emerald-400':ch>0?'text-red-400':'text-zinc-600'}`}>{ch>0?'+':''}{ch}</div>}
+            </div>
+          ))}
+        </div>
+        {(calChange!=null||proChange!=null)&&<div className="mt-3 pt-3 border-t border-zinc-800 text-xs text-zinc-500 text-center">vs previous week</div>}
+      </div>
+      {/* Days vs target */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <h2 className="text-sm font-semibold text-zinc-300 mb-3">Days vs Target</h2>
+        <div className="flex items-center gap-3">
+          {[{count:daysOnTarget,label:'On Target',c:'text-emerald-400'},{count:daysUnder,label:'Under',c:'text-amber-400'},{count:daysOver,label:'Over',c:'text-red-400'},{count:7-loggedDays.length,label:'Not Logged',c:'text-zinc-600'}].map(({count,label,c})=>(
+            <div key={label} className="flex-1 text-center"><div className={`text-xl font-bold ${c}`}>{count}</div><div className="text-[10px] text-zinc-600 mt-0.5">{label}</div></div>
+          ))}
+        </div>
+      </div>
+      {/* Workouts */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <h2 className="text-sm font-semibold text-zinc-300 mb-3">Workout Summary</h2>
+        {weekWorkouts.length===0?<p className="text-sm text-zinc-600 text-center py-2">No workouts logged this week</p>:(
+          <>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="text-center"><div className="text-lg font-bold text-blue-400">{weekWorkouts.length}</div><div className="text-[10px] text-zinc-600">Sessions</div></div>
+              <div className="text-center"><div className="text-lg font-bold text-purple-400">{totalVol>0?`${Math.round(totalVol/100)/10}k`:'—'}</div><div className="text-[10px] text-zinc-600">lbs Volume</div></div>
+              <div className="text-center"><div className="text-lg font-bold text-emerald-400">{totalCardio}</div><div className="text-[10px] text-zinc-600">Cardio Sessions</div></div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {weekWorkouts.map((w,i)=>(
+                <span key={i} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${w.type==='Push'?'bg-blue-500/20 text-blue-300':w.type==='Pull'?'bg-purple-500/20 text-purple-300':'bg-emerald-500/20 text-emerald-300'}`}>{w.type}</span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="h-2"/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// APP ROOT
+// ═══════════════════════════════════════════════════════════
+function App() {
+  const [activeTab, setActiveTab] = useState('today');
+  const [today] = useState(getToday);
+  const [logs, setLogs] = useState(()=>getAllLogs());
+  const [workouts, setWorkouts] = useState(()=>getAllWorkouts());
+  const [weights, setWeights] = useState(()=>getAllWeights());
+  const [cycleIndex, setCycleIdx] = useState(()=>getCycleIdx());
+  const [prs, setPRs] = useState(()=>getPRs());
+  const [logMealTarget, setLogMealTarget] = useState(null);
+  const todayLog = logs[today] || EMPTY_LOG(today);
+
+  const addMealItems = useCallback((mealType, items) => {
+    const log = logs[today] || EMPTY_LOG(today);
+    const newLog = {...log, meals: {...log.meals, [mealType]:[...log.meals[mealType], ...items]}};
+    const newLogs = {...logs, [today]:newLog};
+    setLogs(newLogs); saveAllLogs(newLogs);
+  }, [logs, today]);
+
+  const removeMealItem = useCallback((mealType, itemId) => {
+    const log = logs[today] || EMPTY_LOG(today);
+    const newLog = {...log, meals: {...log.meals, [mealType]:log.meals[mealType].filter(i=>i.id!==itemId)}};
+    const newLogs = {...logs, [today]:newLog};
+    setLogs(newLogs); saveAllLogs(newLogs);
+  }, [logs, today]);
+
+  const saveWorkout = useCallback((date, workout) => {
+    const nw = {...workouts, [date]:workout};
+    setWorkouts(nw); saveAllWorkouts(nw);
+  }, [workouts]);
+
+  const advanceCycle = useCallback(() => {
+    const next=(cycleIndex+1)%5; setCycleIdx(next); saveCycleIdx(next);
+  }, [cycleIndex]);
+
+  const checkAndSavePR = useCallback((exerciseId, weight, reps) => {
+    const newOneRM=calcOneRM(weight,reps);
+    const existing=prs[exerciseId];
+    if(!existing||newOneRM>existing.oneRM){
+      const newPRs={...prs,[exerciseId]:{weight,reps,oneRM:newOneRM,date:today}};
+      setPRs(newPRs); savePRs(newPRs); return true;
+    }
+    return false;
+  }, [prs, today]);
+
+  const logWeight = useCallback((date, weight) => {
+    const nw={...weights,[date]:weight}; setWeights(nw); saveAllWeights(nw);
+  }, [weights]);
+
+  const goToLogMeal = useCallback((mealType) => {
+    setLogMealTarget(mealType); setActiveTab('log');
+  }, []);
+
+  const handleTab = useCallback((tab) => {
+    if(tab!=='log') setLogMealTarget(null);
+    setActiveTab(tab);
+  }, []);
+
+  const tabKey = activeTab + (logMealTarget||'');
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100dvh',background:'#09090b',color:'#f4f4f5',maxWidth:'448px',margin:'0 auto',position:'relative'}}>
+      <div style={{flex:1,overflowY:'auto',paddingBottom:'72px'}}>
+        <div className="tab-anim" key={tabKey}>
+          {activeTab==='today'&&<Today todayLog={todayLog} today={today} workouts={workouts} weights={weights} cycleIndex={cycleIndex} goToLogMeal={goToLogMeal} removeMealItem={removeMealItem}/>}
+          {activeTab==='log'&&<LogMeal todayLog={todayLog} today={today} addMealItems={addMealItems} removeMealItem={removeMealItem} initialMealType={logMealTarget}/>}
+          {activeTab==='workouts'&&<Workouts today={today} workouts={workouts} cycleIndex={cycleIndex} prs={prs} saveWorkout={saveWorkout} advanceCycle={advanceCycle} checkAndSavePR={checkAndSavePR}/>}
+          {activeTab==='weight'&&<Weight today={today} weights={weights} logWeight={logWeight}/>}
+          {activeTab==='weekly'&&<Weekly today={today} logs={logs} workouts={workouts} weights={weights}/>}
+        </div>
+      </div>
+      <Navigation active={activeTab} onChange={handleTab}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

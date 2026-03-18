@@ -1,9 +1,7 @@
-# Walr AE App (keep local only)
-index.html
+# Walr AE App source files (keep local only)
 index.css
 App.jsx
 main.jsx
-package.json
 postcss.config.js
 tailwind.config.js
 vite.config.js

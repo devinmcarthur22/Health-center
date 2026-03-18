@@ -534,6 +534,90 @@ const MealSection = ({title, emoji, items, onAdd, onRemove}) => {
   );
 };
 
+// ─── Garmin Panel ────────────────────────────────────────────────────────────
+const stressLabel = (v) => v < 26 ? 'Low' : v < 51 ? 'Medium' : v < 76 ? 'High' : 'Very High';
+const stressColor = (v) => v < 26 ? 'text-emerald-400' : v < 51 ? 'text-amber-400' : v < 76 ? 'text-orange-400' : 'text-red-400';
+
+const GarminPanel = () => {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr]         = useState(false);
+
+  useEffect(() => {
+    fetch('/api/garmin')
+      .then(r => r.json())
+      .then(d => { if (d.ok) setData(d); else setErr(true); })
+      .catch(() => setErr(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
+      <span className="text-lg animate-pulse">⌚</span>
+      <span className="text-sm text-zinc-500">Loading Garmin data…</span>
+    </div>
+  );
+  if (err || !data) return null;
+
+  const stepsPct = Math.min(100, Math.round(data.steps / data.stepsGoal * 100));
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-zinc-200">⌚ Garmin — Today</span>
+        <span className="text-[10px] text-zinc-600">{data.date}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {/* Steps */}
+        <div className="bg-zinc-800 rounded-xl p-3">
+          <div className="text-[10px] text-zinc-500 mb-0.5">Steps</div>
+          <div className="text-lg font-bold text-zinc-100">{data.steps.toLocaleString()}</div>
+          <div className="text-[10px] text-zinc-600 mb-2">of {data.stepsGoal.toLocaleString()}</div>
+          <div className="h-1 bg-zinc-700 rounded-full">
+            <div className="h-1 bg-blue-500 rounded-full transition-all" style={{width: stepsPct + '%'}}/>
+          </div>
+          <div className="text-[10px] text-zinc-600 mt-1">{stepsPct}%</div>
+        </div>
+
+        {/* Calories burned */}
+        <div className="bg-zinc-800 rounded-xl p-3">
+          <div className="text-[10px] text-zinc-500 mb-0.5">Calories Burned</div>
+          <div className="text-lg font-bold text-orange-400">{data.caloriesBurned.toLocaleString()}</div>
+          <div className="text-[10px] text-zinc-600">Active: {data.activeCalories}</div>
+          {data.restingHR && <div className="text-[10px] text-zinc-600 mt-1">RHR: {data.restingHR} bpm</div>}
+        </div>
+
+        {/* Sleep */}
+        {data.sleep.hours && (
+          <div className="bg-zinc-800 rounded-xl p-3">
+            <div className="text-[10px] text-zinc-500 mb-0.5">Sleep</div>
+            <div className={`text-lg font-bold ${data.sleep.hours >= 7 ? 'text-emerald-400' : data.sleep.hours >= 6 ? 'text-amber-400' : 'text-red-400'}`}>
+              {data.sleep.hours}h
+            </div>
+            {data.sleep.score && <div className="text-[10px] text-zinc-600">Score: {data.sleep.score}</div>}
+            {data.sleep.deepSec && (
+              <div className="text-[10px] text-zinc-600 mt-1">
+                Deep: {Math.round(data.sleep.deepSec/60)}m · REM: {Math.round((data.sleep.remSec||0)/60)}m
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stress */}
+        {data.stress.avg && (
+          <div className="bg-zinc-800 rounded-xl p-3">
+            <div className="text-[10px] text-zinc-500 mb-0.5">Avg Stress</div>
+            <div className={`text-lg font-bold ${stressColor(data.stress.avg)}`}>{data.stress.avg}</div>
+            <div className={`text-[10px] ${stressColor(data.stress.avg)}`}>{stressLabel(data.stress.avg)}</div>
+            {data.stress.max && <div className="text-[10px] text-zinc-600 mt-1">Peak: {data.stress.max}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Today = ({todayLog,today,logs,workouts,weights,cycleIndex,goToLogMeal,removeMealItem}) => {
   const targets=getTargets(today);
   const totals=sumAllMeals(todayLog.meals);
@@ -608,6 +692,9 @@ const Today = ({todayLog,today,logs,workouts,weights,cycleIndex,goToLogMeal,remo
           </div>
         ))}
       </div>
+
+      {/* Garmin */}
+      <GarminPanel/>
 
       {/* AI Insight */}
       {insight&&(

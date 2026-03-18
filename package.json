@@ -1,0 +1,8 @@
+{
+  "name": "health-center-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "garmin-connect": "^1.8.1"
+  }
+}

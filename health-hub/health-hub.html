@@ -541,13 +541,13 @@ const stressColor = (v) => v < 26 ? 'text-emerald-400' : v < 51 ? 'text-amber-40
 const GarminPanel = () => {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr]         = useState(false);
+  const [errMsg, setErrMsg]   = useState(null);
 
   useEffect(() => {
     fetch('/api/garmin')
       .then(r => r.json())
-      .then(d => { if (d.ok) setData(d); else setErr(true); })
-      .catch(() => setErr(true))
+      .then(d => { if (d.ok) setData(d); else setErrMsg(d.error || 'Garmin returned an error'); })
+      .catch(e => setErrMsg('Could not reach Garmin API — ' + e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -557,7 +557,13 @@ const GarminPanel = () => {
       <span className="text-sm text-zinc-500">Loading Garmin data…</span>
     </div>
   );
-  if (err || !data) return null;
+  if (errMsg) return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-1">
+      <div className="flex items-center gap-2"><span>⌚</span><span className="text-sm font-semibold text-zinc-300">Garmin</span></div>
+      <p className="text-xs text-red-400 break-all">{errMsg}</p>
+    </div>
+  );
+  if (!data) return null;
 
   const stepsPct = Math.min(100, Math.round(data.steps / data.stepsGoal * 100));
 

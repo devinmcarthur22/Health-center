@@ -1,6 +1,10 @@
 {
   "version": 2,
   "buildCommand": "",
-  "installCommand": "npm install",
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "functions": {
+    "api/garmin.py": {
+      "runtime": "python3.12"
+    }
+  }
 }

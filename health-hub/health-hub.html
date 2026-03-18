@@ -1501,7 +1501,16 @@ const Weekly = ({today, logs, workouts, weights}) => {
 // ═══════════════════════════════════════════════════════════
 function App() {
   const [activeTab, setActiveTab] = useState('today');
-  const [today] = useState(getToday);
+  const [today, setToday] = useState(getToday);
+
+  // Reset to new day whenever app comes back into view (handles iOS bfcache restore + midnight crossover)
+  useEffect(() => {
+    const check = () => setToday(prev => { const t = getToday(); return t !== prev ? t : prev; });
+    const id = setInterval(check, 60000); // check every minute
+    document.addEventListener('visibilitychange', check); // fires when switching back to app
+    window.addEventListener('pageshow', check);           // fires on iOS bfcache restore
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', check); window.removeEventListener('pageshow', check); };
+  }, []);
   const [logs, setLogs] = useState(()=>getAllLogs());
   const [workouts, setWorkouts] = useState(()=>getAllWorkouts());
   const [weights, setWeights] = useState(()=>getAllWeights());
